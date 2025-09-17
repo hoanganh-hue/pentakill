@@ -1,0 +1,4 @@
+# Danh sách MST cần tra cứu (mỗi dòng một MST, 10 hoặc 13 chữ số)
+# Dòng bắt đầu bằng # sẽ bị bỏ qua
+0104478506
+

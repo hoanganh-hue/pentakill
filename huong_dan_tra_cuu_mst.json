@@ -1,0 +1,126 @@
+{
+  "title": "Hướng dẫn chi tiết tra cứu Mã Số Thuế (MST) qua API thongtindoanhnghiep.co",
+  "version": "1.0.0",
+  "generated_at": "2025-09-17T00:00:00Z",
+  "purpose": "Cung cấp hướng dẫn thao tác chi tiết (bằng lệnh) để tra cứu thông tin doanh nghiệp theo MST, kèm quy trình kiểm chứng kết quả đầu cuối.",
+  "base_url": "https://thongtindoanhnghiep.co",
+  "endpoints": [
+    {
+      "name": "Lấy chi tiết doanh nghiệp theo MST",
+      "method": "GET",
+      "path": "/api/company/{mst}",
+      "path_params": {
+        "mst": "Chuỗi số MST Việt Nam. Hỗ trợ 10 hoặc 13 ký tự số (13 ký tự = 10 ký tự gốc + nhánh)"
+      },
+      "description": "Trả về thông tin chi tiết doanh nghiệp nếu MST tồn tại.",
+      "success_criteria": [
+        "HTTP 200",
+        "Trường 'MaSoThue' khớp với đầu vào (10 ký tự với trường hợp MST 13 ký tự sẽ khớp phần gốc)",
+        "Có ít nhất một trong các trường: 'Title', 'NoiDangKyQuanLy_CoQuanTitle', 'ExitsInGDT'"
+      ]
+    },
+    {
+      "name": "Tìm kiếm doanh nghiệp (dự phòng)",
+      "method": "GET",
+      "path": "/api/company",
+      "query_params": {
+        "k": "Từ khóa tên công ty hoặc MST (khi không dùng path /api/company/{mst})",
+        "p": "Số trang (mặc định 1)",
+        "r": "Số bản ghi mỗi trang"
+      },
+      "description": "Dùng để đối chiếu/so khớp bổ sung khi cần (không bắt buộc)."
+    }
+  ],
+  "request_prerequisites": {
+    "network": "Bảo đảm truy cập Internet và TLS 1.2+",
+    "rate_limit_handling": "Tôn trọng giới hạn nếu có; dùng retry + backoff khi mã 429/5xx",
+    "timeout_recommendation_seconds": 15
+  },
+  "mst_normalization_rules": {
+    "trim_whitespaces": true,
+    "remove_separators": [" ", "-", "."],
+    "allowed_lengths": [10, 13],
+    "must_be_digits_only": true,
+    "notes": "MST 13 ký tự gồm MST gốc 10 ký tự + 3 ký tự nhánh. Khi so khớp kết quả, so sánh 'MaSoThue' trả về với 10 ký tự gốc."
+  },
+  "curl_examples": {
+    "lookup_by_mst": {
+      "description": "Tra cứu trực tiếp bằng MST (khuyến nghị)",
+      "command": "curl -sS --fail --max-time 20 'https://thongtindoanhnghiep.co/api/company/0104478506'"
+    },
+    "search_by_keyword": {
+      "description": "Tìm kiếm dự phòng bằng từ khóa (tên/MST)",
+      "command": "curl -sS --fail --max-time 20 'https://thongtindoanhnghiep.co/api/company?k=Cong%20Ty%20Co%20Phan%20Cong%20Nghe&p=1'"
+    }
+  },
+  "python_examples": {
+    "lookup_by_mst": {
+      "description": "Sử dụng client Python sẵn có trong dự án",
+      "script": "from thongtindoanhnghiep_api_client import ThongTinDoanhNghiepAPIClient\nclient = ThongTinDoanhNghiepAPIClient()\nprint(client.get_company_detail_by_mst('0104478506'))"
+    }
+  },
+  "response_schema_core_fields": [
+    "MaSoThue",
+    "Title",
+    "TitleEn",
+    "DiaChiCongTy",
+    "TinhThanhTitle",
+    "QuanHuyenTitle",
+    "NgayCap",
+    "ExitsInGDT",
+    "NoiDangKyQuanLy_CoQuanTitle",
+    "ChuSoHuu",
+    "GiamDoc",
+    "NganhNgheTitle"
+  ],
+  "validation_and_accuracy_checks": {
+    "steps": [
+      "Chuẩn hóa MST đầu vào theo 'mst_normalization_rules'",
+      "Gọi GET /api/company/{mst} và kiểm tra HTTP 200",
+      "Đảm bảo 'MaSoThue' trong phản hồi khớp MST gốc 10 ký tự",
+      "Nếu 'ExitsInGDT' = true và có 'NoiDangKyQuanLy_CoQuanTitle' thì đánh dấu xác thực cao",
+      "Đối chiếu thêm các trường 'Title', 'DiaChiCongTy', 'GiayPhepKinhDoanh' (nếu có) để tăng độ tin cậy",
+      "Nếu phản hồi rỗng/None hoặc HTTP lỗi: thực hiện retry tối đa 3 lần với exponential backoff (1s, 2s, 4s)",
+      "Nếu vẫn thất bại: dùng tìm kiếm dự phòng /api/company?k={mst} để xác minh chéo",
+      "Ghi log đầy đủ request/response (không ghi dữ liệu nhạy cảm)"
+    ],
+    "non_200_handling": {
+      "429": "Chờ theo backoff, giữ nguyên MST, retry tối đa 3 lần",
+      "5xx": "Retry với backoff; nếu tái diễn, chuyển sang phương án dự phòng",
+      "404": "Xác nhận MST không tồn tại trong hệ thống hoặc là MST nhánh; thử với MST gốc 10 ký tự"
+    },
+    "data_freshness_note": "Dữ liệu có thể lệch thời gian so với cơ quan thuế. Để đạt độ chính xác tối đa, nên đối chiếu thêm tại cổng GDT khi cần."
+  },
+  "accuracy_policy": {
+    "claim": "Mục tiêu đạt độ chính xác thực tế tối đa qua chuẩn hóa đầu vào, kiểm chứng đa điều kiện và retry có kiểm soát.",
+    "constraints": [
+      "Nguồn dữ liệu phụ thuộc máy chủ thongtindoanhnghiep.co",
+      "Biến động pháp nhân/địa chỉ có thể chưa phản ánh tức thời"
+    ],
+    "recommendations": [
+      "Luôn thực thi pipeline 'validation_and_accuracy_checks'",
+      "Lưu vết truy vấn (timestamp, MST đầu vào/sau chuẩn hóa, HTTP status, hash nội dung phản hồi)",
+      "Định kỳ đối chiếu mẫu ngẫu nhiên với nguồn cơ quan thuế để hiệu chuẩn"
+    ]
+  },
+  "troubleshooting": [
+    {
+      "issue": "HTTP 429 (Too Many Requests)",
+      "fix": "Áp dụng exponential backoff, giảm tần suất, gộp lô truy vấn"
+    },
+    {
+      "issue": "Kết nối TLS thất bại",
+      "fix": "Kiểm tra thời gian hệ thống, CA bundle, thử verify=true với gói chứng chỉ cập nhật"
+    },
+    {
+      "issue": "MST 13 ký tự không trả dữ liệu",
+      "fix": "Thử lại với MST gốc 10 ký tự để đối chiếu"
+    }
+  ],
+  "field_mapping_notes": {
+    "MaSoThue": "MST gốc 10 ký tự",
+    "GiayPhepKinhDoanh": "Thường trùng MST, có thể kèm ngày cấp ở 'GiayPhepKinhDoanh_NgayCap'",
+    "ExitsInGDT": "Cờ tồn tại theo nguồn dữ liệu hệ thống",
+    "DSMaNganhNgheKinhDoanh": "Danh sách mã ngành theo chuẩn ngành nghề"
+  }
+}

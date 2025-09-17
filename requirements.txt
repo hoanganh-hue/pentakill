@@ -1,0 +1,15 @@
+# Core data processing libraries
+pandas>=1.5.0
+numpy>=1.24.0
+
+# Excel processing
+openpyxl>=3.1.0
+
+# Development and testing
+python-dateutil>=2.8.2
+\n+# Web API
+fastapi>=0.111.0
+uvicorn>=0.30.0
+\n+# Utilities
+cachetools>=5.3.3
+pydantic>=2.7.0
